@@ -1,0 +1,306 @@
+// CashPilot data model.
+//
+// Conventions
+// - Every monetary amount is an integer number of millimes (1 DT = 1 000 millimes):
+//   no floating point is ever stored or summed.
+// - Date-only business fields (issue date, due date, payment date…) are stored at
+//   00:00 UTC and handled as "YYYY-MM-DD" strings in the domain layer.
+// - Enumerations are stored as strings (SQLite) and validated by Zod + TypeScript
+//   union types defined in src/domain.
+// - Validated financial operations are never deleted: corrections are new,
+//   traceable operations (reversals, cancellations) + an AuditLog entry.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  memberships       Membership[]
+  submittedExpenses Expense[]    @relation("ExpenseSubmitter")
+  reviewedExpenses  Expense[]    @relation("ExpenseReviewer")
+  auditLogs         AuditLog[]
+}
+
+model Company {
+  id                 String   @id @default(cuid())
+  name               String
+  sector             String // DIGITAL_AGENCY | TRAINING_CENTER | RETAIL | SERVICES
+  currency           String   @default("TND")
+  initialBalance     Int // millimes
+  initialBalanceDate DateTime
+  invoicePrefix      String   @default("FAC")
+  nextInvoiceNumber  Int      @default(1)
+  defaultTaxRateBp   Int      @default(1900) // basis points: 1900 = 19 %
+  createdAt          DateTime @default(now())
+
+  memberships  Membership[]
+  contacts     Contact[]
+  invoices     Invoice[]
+  payments     Payment[]
+  expenses     Expense[]
+  movements    Movement[]
+  plannedFlows PlannedFlow[]
+  retainers    Retainer[]
+  scenarios    Scenario[]
+  auditLogs    AuditLog[]
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  role      String // DIRECTOR | FINANCE_MANAGER | EMPLOYEE
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+}
+
+model Contact {
+  id        String    @id @default(cuid())
+  companyId String
+  kind      String // CLIENT | SUPPLIER
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  taxId     String? // matricule fiscal
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  archivedAt DateTime?
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoices  Invoice[]
+  expenses  Expense[]
+  retainers Retainer[]
+
+  @@index([companyId, kind])
+}
+
+model Invoice {
+  id             String    @id @default(cuid())
+  companyId      String
+  clientId       String
+  number         String? // assigned when the draft is validated
+  status         String // DRAFT | ISSUED | CANCELLED (payment status is derived)
+  issueDate      DateTime
+  dueDate        DateTime
+  subtotal       Int       @default(0)
+  taxRateBp      Int
+  taxAmount      Int       @default(0)
+  total          Int       @default(0)
+  notes          String?
+  createdById    String
+  issuedAt       DateTime?
+  issuedById     String?
+  cancelledAt    DateTime?
+  cancelledById  String?
+  cancelReason   String?
+  retainerId     String?
+  retainerPeriod String? // "YYYY-MM" when generated from a retainer
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  company  Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client   Contact       @relation(fields: [clientId], references: [id])
+  retainer Retainer?     @relation(fields: [retainerId], references: [id])
+  lines    InvoiceLine[]
+  payments Payment[]
+
+  @@unique([companyId, number])
+  @@unique([retainerId, retainerPeriod])
+  @@index([companyId, status])
+}
+
+model InvoiceLine {
+  id            String @id @default(cuid())
+  invoiceId     String
+  position      Int
+  description   String
+  quantityMilli Int // quantity × 1000 (supports 7.5 hours)
+  unitPrice     Int // millimes, excluding tax
+  amount        Int // millimes, excluding tax
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id           String   @id @default(cuid())
+  companyId    String
+  invoiceId    String
+  amount       Int // > 0 for a receipt, < 0 for a reversal
+  date         DateTime
+  method       String // TRANSFER | CHECK | CASH | CARD | OTHER
+  reference    String?
+  note         String?
+  reversalOfId String?  @unique
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoice    Invoice   @relation(fields: [invoiceId], references: [id])
+  reversalOf Payment?  @relation("PaymentReversal", fields: [reversalOfId], references: [id])
+  reversedBy Payment?  @relation("PaymentReversal")
+  movement   Movement?
+
+  @@index([invoiceId])
+}
+
+model Expense {
+  id            String    @id @default(cuid())
+  companyId     String
+  submittedById String
+  supplierId    String?
+  category      String
+  description   String
+  amount        Int
+  expenseDate   DateTime // when the expense was incurred
+  dueDate       DateTime // when it is expected to be paid (feeds the forecast)
+  receiptPath   String?
+  receiptName   String?
+  receiptMime   String?
+  status        String // SUBMITTED | APPROVED | REJECTED | PAID
+  reviewedById  String?
+  reviewedAt    DateTime?
+  reviewComment String?
+  paidAt        DateTime?
+  paidById      String?
+  paymentMethod String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  submittedBy User      @relation("ExpenseSubmitter", fields: [submittedById], references: [id])
+  reviewedBy  User?     @relation("ExpenseReviewer", fields: [reviewedById], references: [id])
+  supplier    Contact?  @relation(fields: [supplierId], references: [id])
+  movement    Movement?
+
+  @@index([companyId, status])
+}
+
+/// Ledger of realised cash operations: the real balance is
+/// company.initialBalance + Σ movement.amount. The unique foreign keys guarantee
+/// that a payment or an expense affects the real balance exactly once.
+model Movement {
+  id           String   @id @default(cuid())
+  companyId    String
+  date         DateTime
+  amount       Int // signed millimes
+  kind         String // CUSTOMER_PAYMENT | PAYMENT_REVERSAL | EXPENSE_PAYMENT | MANUAL_IN | MANUAL_OUT | MANUAL_REVERSAL
+  label        String
+  paymentId    String?  @unique
+  expenseId    String?  @unique
+  reversalOfId String?  @unique
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  payment    Payment?  @relation(fields: [paymentId], references: [id])
+  expense    Expense?  @relation(fields: [expenseId], references: [id])
+  reversalOf Movement? @relation("MovementReversal", fields: [reversalOfId], references: [id])
+  reversedBy Movement? @relation("MovementReversal")
+
+  @@index([companyId, date])
+}
+
+/// Expected cash flows that are not invoices or expenses (rent, salaries, loan…).
+model PlannedFlow {
+  id          String    @id @default(cuid())
+  companyId   String
+  direction   String // IN | OUT
+  label       String
+  amount      Int
+  startDate   DateTime
+  recurrence  String // NONE | MONTHLY
+  endDate     DateTime?
+  active      Boolean   @default(true)
+  createdById String
+  createdAt   DateTime  @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+/// Sector feature (digital agency): monthly maintenance / retainer contracts.
+/// Each month is expected in the forecast until it is invoiced.
+model Retainer {
+  id            String    @id @default(cuid())
+  companyId     String
+  clientId      String
+  label         String
+  monthlyAmount Int // excluding tax
+  taxRateBp     Int
+  dayOfMonth    Int // expected collection day (1–28)
+  startDate     DateTime
+  endDate       DateTime?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client   Contact   @relation(fields: [clientId], references: [id])
+  invoices Invoice[]
+
+  @@index([companyId])
+}
+
+/// "What if?" scenarios. They only store hypotheses: they are applied in memory
+/// on top of the real forecast and never modify real data.
+model Scenario {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  description String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  company     Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  adjustments ScenarioAdjustment[]
+
+  @@index([companyId])
+}
+
+model ScenarioAdjustment {
+  id         String   @id @default(cuid())
+  scenarioId String
+  kind       String // DELAY_INVOICE | NEW_EXPENSE | NEW_INFLOW
+  invoiceId  String?
+  delayDays  Int?
+  label      String?
+  amount     Int?
+  date       DateTime?
+  createdAt  DateTime @default(now())
+
+  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  companyId  String
+  actorId    String
+  action     String // e.g. invoice.issued, payment.recorded, expense.approved
+  entityType String
+  entityId   String
+  summary    String
+  createdAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  actor   User    @relation(fields: [actorId], references: [id])
+
+  @@index([companyId, createdAt])
+}
