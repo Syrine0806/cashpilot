@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+/* Dark mode is driven by a `.dark` class on <html> (see ThemeScript). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+ * Design tokens — components only use these roles, never raw hex values.
+ * ------------------------------------------------------------------------- */
+:root {
+  --background: #f4f6f9;
+  --surface: #ffffff;
+  --surface-muted: #f0f2f6;
+  --border: #e3e7ee;
+  --border-strong: #cdd3de;
+  --text: #0c1222;
+  --text-secondary: #485267;
+  --text-muted: #6a7488;
+
+  --brand: #3a5cf5;
+  --brand-strong: #2945d4;
+  --brand-soft: #e9eeff;
+  --brand-contrast: #ffffff;
+  --accent: #10b3a3;
+
+  --positive: #0b8a4a;
+  --positive-soft: #e5f6ec;
+  --negative: #d32f2f;
+  --negative-soft: #fdecec;
+  --warning: #a95a00;
+  --warning-soft: #fff3df;
+  --info: #1e63c4;
+  --info-soft: #e7effc;
+
+  /* Validated categorical chart slots (light surface). */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --grid: #e7eaf0;
+
+  /* Navigation rail ("flight deck"): dark in both themes. */
+  --nav-bg: #0a0f1f;
+  --nav-raised: #121a31;
+  --nav-active: #1b2546;
+  --nav-border: #1b2340;
+  --nav-text: #c8d0e3;
+  --nav-muted: #7b86a4;
+
+  --shadow-card: 0 1px 2px rgb(12 18 34 / 0.04), 0 1px 3px rgb(12 18 34 / 0.06);
+  --shadow-pop: 0 12px 32px -8px rgb(12 18 34 / 0.25);
+  color-scheme: light;
+}
+
+.dark {
+  --background: #070b15;
+  --surface: #0e1424;
+  --surface-muted: #141b2f;
+  --border: #1f2842;
+  --border-strong: #2d3858;
+  --text: #e8ecf6;
+  --text-secondary: #b2bbd1;
+  --text-muted: #8590ab;
+
+  --brand: #7189ff;
+  --brand-strong: #8fa2ff;
+  --brand-soft: #18224b;
+  --brand-contrast: #0a0f1f;
+  --accent: #2dd4bf;
+
+  --positive: #3fcf88;
+  --positive-soft: #0f2a1e;
+  --negative: #ff6b6b;
+  --negative-soft: #2e1216;
+  --warning: #f2a33a;
+  --warning-soft: #2c1e09;
+  --info: #5ea4ff;
+  --info-soft: #0f1f3b;
+
+  /* Dark steps of the same validated hues. */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --grid: #1b2339;
+
+  --nav-bg: #050810;
+  --nav-raised: #0e1426;
+  --nav-active: #172042;
+  --nav-border: #141b33;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-pop: 0 16px 40px -8px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-contrast: var(--brand-contrast);
+  --color-accent: var(--accent);
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-negative: var(--negative);
+  --color-negative-soft: var(--negative-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-nav-bg: var(--nav-bg);
+  --color-nav-raised: var(--nav-raised);
+  --color-nav-active: var(--nav-active);
+  --color-nav-border: var(--nav-border);
+  --color-nav-text: var(--nav-text);
+  --color-nav-muted: var(--nav-muted);
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --animate-rise: rise 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-toast: toast-in 0.25s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle "radar" grid used on the navigation rail and the auth panel. */
+.radar-grid {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+dialog::backdrop {
+  background: rgb(5 8 16 / 0.55);
+  backdrop-filter: blur(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
