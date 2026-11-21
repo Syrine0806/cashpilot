@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { registerAction } from "@/actions/auth.actions";
 import { ActionForm } from "@/components/forms/action-form";
 import { Input } from "@/components/forms/fields";
+import { getCurrentUser } from "@/server/auth/dal";
 
 export const metadata: Metadata = { title: "Créer un compte" };
 
-export default function RegisterPage() {
+export default async function RegisterPage() {
+  if (await getCurrentUser()) redirect("/companies");
   return (
     <>
       <h1 className="text-2xl font-semibold tracking-tight">Créer un compte</h1>

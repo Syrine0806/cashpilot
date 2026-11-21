@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { loginAction } from "@/actions/auth.actions";
 import { ActionForm } from "@/components/forms/action-form";
 import { Input } from "@/components/forms/fields";
+import { getCurrentUser } from "@/server/auth/dal";
 
 export const metadata: Metadata = { title: "Connexion" };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+  // Checked against the database: a stale cookie (deleted user) simply shows the form.
+  if (await getCurrentUser()) redirect("/companies");
   const { next } = await searchParams;
   return (
     <>

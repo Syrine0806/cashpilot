@@ -28,6 +28,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}/login`,
     timeout: 240_000,
     reuseExistingServer: false,
-    env: { DATABASE_URL: "file:./e2e.db", UPLOAD_DIR: "./storage/e2e-receipts" },
+    env: { DATABASE_URL: "file:./e2e.db", UPLOAD_DIR: "./storage/e2e-receipts", NEXT_DIST_DIR: ".next-e2e" },
   },
 });

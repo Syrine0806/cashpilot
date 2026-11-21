@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { SignJWT } from "jose";
 import { expect, test, DEMO } from "./fixtures";
 import { dt } from "./pages/base.page";
 
@@ -67,4 +69,18 @@ test.describe("permissions & business rules", () => {
     await expect(page.getByText("Studio Pixel")).toHaveCount(0);
     await outsider.close();
   });
+});
+
+test("a session cookie of a deleted user does not cause a redirect loop", async ({ page, context, baseURL }) => {
+  // Correctly signed token whose user does not exist (e.g. after re-seeding the database).
+  const secret = readFileSync(".env", "utf8").match(/SESSION_SECRET="([^"]+)"/)![1];
+  const token = await new SignJWT({ userId: "deleted-user" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setExpirationTime("1h")
+    .sign(new TextEncoder().encode(secret));
+  await context.addCookies([{ name: "cashpilot_session", value: token, url: baseURL! }]);
+
+  await page.goto("/companies");
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.getByRole("heading", { name: "Connexion" })).toBeVisible();
 });

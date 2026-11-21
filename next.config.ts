@@ -6,6 +6,8 @@ import type { NextConfig } from "next";
  * disabled (see README › Choix techniques).
  */
 const nextConfig: NextConfig = {
+  // End-to-end tests build into their own folder so they never disturb a running server.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   cacheComponents: false,
   experimental: {
     serverActions: {
